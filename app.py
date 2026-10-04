@@ -72,13 +72,14 @@ def transcode(job, url, height, out_dir):
     cmd = ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-progress", "pipe:1", "-nostats"]
     for f in sources:
         hdrs = "".join(f"{k}: {v}\r\n" for k, v in (f.get("http_headers") or {}).items())
-        cmd += ["-headers", hdrs, "-i", f["url"]]
+        cmd += ["-skip_loop_filter", "all", "-headers", hdrs, "-i", f["url"]]
     if len(sources) > 1:
         cmd += ["-map", "0:v:0", "-map", "1:a:0"]
     else:
         cmd += ["-map", "0:v:0", "-map", "0:a:0?"]
     out = os.path.join(out_dir, f"{title} ({height}p).mp4")
-    cmd += ["-vf", f"scale=-2:{int(height)}", "-c:v", "libx264", "-preset", "veryfast",
+    cmd += ["-vf", f"scale=-2:{int(height)}:flags=fast_bilinear,fps=24", "-c:v", "libx264",
+            "-preset", "superfast",
             "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
             "-movflags", "+faststart", out]
     job["status"] = "processing"
