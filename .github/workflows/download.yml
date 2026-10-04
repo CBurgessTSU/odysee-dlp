@@ -1,0 +1,44 @@
+name: Download video
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Video link (Odysee or any yt-dlp site)
+        required: true
+      format:
+        description: File type
+        type: choice
+        default: mp4
+        options: [mp4, mp3, m4a]
+      quality:
+        description: Video height (ignored for audio)
+        type: choice
+        default: "360"
+        options: ["720", "480", "360", "240", original]
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Download and convert
+        env:
+          VIDEO_URL: ${{ inputs.url }}
+          FORMAT: ${{ inputs.format }}
+          QUALITY: ${{ inputs.quality }}
+        run: python cli.py "$VIDEO_URL" "$FORMAT" "$QUALITY" out
+      - name: Upload file
+        # One file, not zipped: tap it on the run page to download.
+        run: echo "FILE=$(ls out/* | head -n1)" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ env.FILE }}
+          archive: false
+          retention-days: 3

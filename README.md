@@ -25,3 +25,6 @@ New > Blueprint > pick this repo (uses `render.yaml` + `Dockerfile`).
 Keep yt-dlp current: redeploy (clear build cache) if downloads break.
 
 Only download content you have the right to.
+
+## Free fast conversion with GitHub Actions
+Long videos convert slowly on small Render plans. The **Download video** workflow runs the same code on GitHub's runners (free): repo → **Actions** → **Download video** → **Run workflow** → paste a link, pick type/quality. When it finishes, open the run and tap the file under **Artifacts** to download it (kept 3 days). Public repos get 4-CPU runners; private repos get 2 CPUs and 2,000 free minutes/month. Note that a public repo's run logs (including the URL you pasted) and artifacts are visible to others, so consider making the repo private.
