@@ -9,7 +9,26 @@ import uuid
 from urllib.parse import urlparse
 
 from flask import Flask, Response, jsonify, request, send_file, send_from_directory
-from yt_dlp import YoutubeDL
+from yt_dlp import YoutubeDL as _YoutubeDL
+
+
+class YoutubeDL(_YoutubeDL):
+    """yt-dlp with a longer socket timeout and retries on flaky Odysee API calls."""
+
+    def __init__(self, params=None, **kw):
+        params = {"socket_timeout": 60, "retries": 10, "fragment_retries": 10,
+                  "extractor_retries": 5, **(params or {})}
+        super().__init__(params, **kw)
+
+    def extract_info(self, url, *args, **kwargs):
+        for attempt in range(5):
+            try:
+                return super().extract_info(url, *args, **kwargs)
+            except Exception as e:  # noqa: BLE001
+                transient = "timed out" in str(e) or "Unable to download" in str(e)
+                if not transient or attempt == 4:
+                    raise
+                time.sleep(5 * (attempt + 1))
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "dist")
 app = Flask(__name__, static_folder=None)
