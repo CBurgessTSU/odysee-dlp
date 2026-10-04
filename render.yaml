@@ -3,6 +3,7 @@ services:
     name: odysee-dlp
     runtime: docker
     plan: starter
+    healthCheckPath: /healthz
     envVars:
       - key: APP_PASSWORD
         sync: false

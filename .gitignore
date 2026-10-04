@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 downloads/
 .env
+node_modules/
+web/dist/
