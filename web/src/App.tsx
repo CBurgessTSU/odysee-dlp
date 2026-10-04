@@ -67,6 +67,15 @@ const AUDIO_BITRATES: { value: AudioBitrate; label: string; desc: string }[] = [
   { value: "320k", label: "320 kbps", desc: "Highest" },
 ];
 
+const STANDARD_HEIGHTS = [1080, 720, 480, 360, 240];
+
+// Source heights plus smaller phone-friendly sizes (made by converting).
+function qualityChoices(source: number[]): number[] {
+  const top = source.length ? Math.max(...source) : 1080;
+  const set = new Set<number>([...source, ...STANDARD_HEIGHTS.filter((h) => h <= top)]);
+  return [...set].sort((x, y) => y - x);
+}
+
 const STATUS_LABELS: Record<string, string> = {
   queued: "Waiting…",
   downloading: "Downloading to server…",
@@ -115,9 +124,7 @@ export default function App() {
     try {
       const videoInfo = await fetchInfo(url.trim());
       setInfo(videoInfo);
-      // default to the best quality up to 1080p
-      const h = videoInfo.heights.find((x) => x <= 1080) ?? videoInfo.heights[0] ?? null;
-      setSelectedHeight(h);
+      setSelectedHeight(480); // phone-friendly default
     } catch (err) {
       setResolveError(err instanceof Error ? err.message : "Failed to look up URL");
     } finally {
@@ -318,11 +325,11 @@ export default function App() {
                 </div>
               </div>
 
-              {!audioOnly && info.heights.length > 0 && (
+              {!audioOnly && (
                 <div className="animate-in fade-in duration-200">
                   <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">Quality</p>
                   <div className="flex flex-wrap gap-2">
-                    {info.heights.map((h) => {
+                    {qualityChoices(info.heights).map((h) => {
                       const active = selectedHeight === h;
                       return (
                         <button
@@ -339,6 +346,9 @@ export default function App() {
                       );
                     })}
                   </div>
+                  <p className="text-[11px] text-zinc-500 mt-2">
+                    Smaller sizes are converted on the server, so they take longer to start. Long videos can take a while.
+                  </p>
                 </div>
               )}
 

@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import threading
 import time
@@ -60,8 +61,49 @@ def video_selector(height):
     )
 
 
+def transcode(job, url, height, out_dir):
+    """Stream the source straight into ffmpeg and scale it down (no full-size file on disk)."""
+    with YoutubeDL({"quiet": True, "no_warnings": True, "noplaylist": True,
+                    "format": video_selector(None)}) as ydl:
+        d = ydl.extract_info(url, download=False)
+    title = re.sub(r'[\\/:*?"<>|]', "", d.get("title") or "video")[:120].strip() or "video"
+    duration = d.get("duration") or 0
+    sources = d.get("requested_formats") or [d]
+    cmd = ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-progress", "pipe:1", "-nostats"]
+    for f in sources:
+        hdrs = "".join(f"{k}: {v}\r\n" for k, v in (f.get("http_headers") or {}).items())
+        cmd += ["-headers", hdrs, "-i", f["url"]]
+    if len(sources) > 1:
+        cmd += ["-map", "0:v:0", "-map", "1:a:0"]
+    else:
+        cmd += ["-map", "0:v:0", "-map", "0:a:0?"]
+    out = os.path.join(out_dir, f"{title} ({height}p).mp4")
+    cmd += ["-vf", f"scale=-2:{int(height)}", "-c:v", "libx264", "-preset", "veryfast",
+            "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
+            "-movflags", "+faststart", out]
+    job["status"] = "processing"
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    for line in p.stdout:
+        if line.startswith("out_time_us=") and duration:
+            try:
+                job["progress"] = round(min(int(line.split("=")[1]) / 1e6 / duration, 1) * 99, 1)
+            except ValueError:
+                pass
+    err = p.stderr.read()
+    if p.wait() != 0:
+        raise RuntimeError(err.strip().splitlines()[-1] if err.strip() else "ffmpeg failed")
+    return out
+
+
 def run_job(job_id, url, fmt, height, bitrate):
     job = jobs[job_id]
+    if fmt == "mp4" and height:
+        try:
+            with YoutubeDL({"quiet": True, "no_warnings": True, "noplaylist": True}) as ydl:
+                hs = [f.get("height") or 0 for f in ydl.extract_info(url, download=False).get("formats", [])]
+            job["source_height"] = max(hs, default=0) or 10**6
+        except Exception:  # noqa: BLE001
+            job["source_height"] = 10**6
     out_dir = os.path.join(DOWNLOAD_DIR, job_id)
     os.makedirs(out_dir, exist_ok=True)
 
@@ -96,8 +138,11 @@ def run_job(job_id, url, fmt, height, bitrate):
 
     try:
         with slots:
-            with YoutubeDL(opts) as ydl:
-                ydl.extract_info(url, download=True)
+            if fmt == "mp4" and height and height < job.get("source_height", 10**6):
+                transcode(job, url, height, out_dir)
+            else:
+                with YoutubeDL(opts) as ydl:
+                    ydl.extract_info(url, download=True)
         files = [f for f in os.listdir(out_dir) if not f.endswith((".part", ".ytdl"))]
         if not files:
             raise RuntimeError("No file was produced")
