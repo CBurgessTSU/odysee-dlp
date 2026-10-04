@@ -24,6 +24,6 @@ Create a Web Service from this repo (it uses the Dockerfile / `render.yaml`).
 | `APP_PASSWORD` | Optional. If set, the site requires HTTP basic auth (any username, this password). Recommended for public deploys. |
 | `FILE_TTL_SECONDS` | Delete finished files after this long (default 3600). |
 
-Only `odysee.com` URLs are accepted. Keep yt-dlp current (`pip install -U yt-dlp`, or rebuild the image) if downloads break.
+Any URL yt-dlp supports works; Odysee is the primary target. Keep yt-dlp current (`pip install -U yt-dlp`, or rebuild the image) if downloads break.
 
 Only download content you have the right to.

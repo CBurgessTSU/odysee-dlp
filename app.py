@@ -15,7 +15,6 @@ app = Flask(__name__)
 DOWNLOAD_DIR = os.environ.get("DOWNLOAD_DIR", os.path.join(tempfile.gettempdir(), "odysee-dlp"))
 APP_PASSWORD = os.environ.get("APP_PASSWORD")  # optional: enables HTTP basic auth
 FILE_TTL = int(os.environ.get("FILE_TTL_SECONDS", "3600"))
-ALLOWED_HOSTS = {"odysee.com", "www.odysee.com"}
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 jobs = {}
@@ -37,7 +36,7 @@ def valid_url(url):
         p = urlparse(url)
     except ValueError:
         return False
-    return p.scheme in ("http", "https") and p.hostname in ALLOWED_HOSTS
+    return p.scheme in ("http", "https") and bool(p.hostname)
 
 
 def run_job(job_id, url, fmt):
@@ -115,7 +114,7 @@ def start_download():
     if fmt not in ("mp4", "mp3"):
         return jsonify(error="Invalid format"), 400
     if not valid_url(url):
-        return jsonify(error="Please enter a valid odysee.com URL"), 400
+        return jsonify(error="Please enter a valid http(s) URL"), 400
     job_id = uuid.uuid4().hex
     with jobs_lock:
         jobs[job_id] = {"status": "downloading", "progress": 0}
