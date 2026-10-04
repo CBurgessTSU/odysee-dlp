@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Odysee Downloader</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#111;color:#eee;display:flex;justify-content:center;padding:2rem}
+  main{width:100%;max-width:560px}
+  input,select,button{font-size:1rem;padding:.7rem;border-radius:6px;border:1px solid #444;background:#1c1c1c;color:#eee;width:100%;box-sizing:border-box;margin-top:.6rem}
+  button{background:#e50054;border:0;cursor:pointer;font-weight:600}
+  button:disabled{opacity:.5;cursor:wait}
+  progress{width:100%;margin-top:1rem;height:14px}
+  #msg{margin-top:1rem;min-height:1.5rem}
+  a{color:#ff6a9f}
+</style>
+</head>
+<body>
+<main>
+  <h1>Odysee Downloader</h1>
+  <input id="url" type="url" placeholder="https://odysee.com/@channel/video" autofocus>
+  <select id="fmt">
+    <option value="mp4">Video (MP4)</option>
+    <option value="mp3">Audio only (MP3)</option>
+  </select>
+  <button id="go">Download</button>
+  <progress id="bar" max="100" value="0" hidden></progress>
+  <div id="msg"></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+$("go").onclick = async () => {
+  $("msg").textContent = ""; $("bar").hidden = false; $("bar").value = 0; $("go").disabled = true;
+  const r = await fetch("api/download", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({url: $("url").value, format: $("fmt").value})});
+  const j = await r.json();
+  if (!r.ok) return fail(j.error);
+  const t = setInterval(async () => {
+    const s = await (await fetch("api/status/" + j.id)).json();
+    $("bar").value = s.progress || 0;
+    if (s.status === "processing") $("msg").textContent = "Processing with ffmpeg…";
+    if (s.status === "error") { clearInterval(t); fail(s.error); }
+    if (s.status === "done") {
+      clearInterval(t); $("go").disabled = false;
+      $("msg").innerHTML = `Done: <a href="api/file/${j.id}">Save “${s.title.replace(/</g,"&lt;")}”</a>`;
+      location.href = "api/file/" + j.id;
+    }
+  }, 1000);
+};
+function fail(e){ $("msg").textContent = "Error: " + e; $("bar").hidden = true; $("go").disabled = false; }
+</script>
+</body>
+</html>
